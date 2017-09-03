@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+	<script src="https://code.jquery.com/jquery-3.1.1.min.js"   integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="   crossorigin="anonymous"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular.min.js"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<style>
+body {
+	background-color: rgb(78, 78, 78);
+	height:100%;
+	margin-top: 20px;
+}
+
+.top {
+	background-color: rgb(154, 164, 224);
+	padding-top: 20px;
+	padding-bottom: 20px;
+	border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+span {
+	margin: 0px;
+	width: 40px;
+	height: 40px;
+	font-size: 20px;
+	color: rgb(240, 240, 240);
+	background-color: rgb(138, 159, 249);
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	border-right: 2px solid black;
+}
+
+span:last-child {
+	border-right: none;
+}
+
+.array {
+	border: 2px solid black;
+	display: inline-flex;
+}
+
+.good {
+	background-color: rgb(136, 224, 71);
+}
+
+</style>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+<script>
+var app = angular.module('myApp', []);
+app.controller('myCtrl', function($scope) {
+	function preprocess(pattern) {
+		var table = [];
+		for(var i = 0; i < 256; i+=1) {
+			table.push(pattern.length);
+		}
+		
+		for(var i = 0; i < pattern.length - 1; i += 1) {
+			table[pattern[i].charCodeAt()] = pattern.length - i - 1;
+		}
+		return table;
+	}
+	
+	function* search(needle, haystack, table) {
+		var skip = 0;
+		while(haystack.length - skip >= needle.length) {
+			var i = needle.length - 1;
+			while(haystack[skip + i] == needle[i]) {
+				if(i == 0) {
+					return;
+				}
+				i -= 1;
+				yield [skip, i];
+			}
+			
+			skip += table[haystack[skip + needle.length - 1].charCodeAt()];
+			i = needle.length - 1;
+			yield [skip, i];
+		}
+		yield [-1, -1];
+	}
+	
+	$scope.charKeys = 'abcdefghijklmnopqrstuvwxyz '.split('');
+	
+	$scope.$watch('textString', function() {
+		if($scope.textString !== undefined)
+			$scope.textString = $scope.textString.toLowerCase();
+	});
+	
+	$scope.$watch('searchString', function() {
+		if($scope.searchString !== undefined)
+			$scope.searchString = $scope.searchString.toLowerCase();
+	});
+	
+	$scope.next = function() {
+		if($scope.searchResult === undefined)
+			return;
+			
+		var result = $scope.searchResult.next();
+		if(result.done) {
+			$('#needle').children().addClass('good');
+			$scope.searchResult = undefined;
+			return;
+		}
+		
+		var shift = result.value[0];
+		var goodIndex = result.value[1];
+		$('#needle').children().removeClass('good');
+		for(var i = goodIndex + 1; i < $scope.searchString.length; i+=1) {
+			$($('#needle').children()[i]).addClass('good');
+		}
+		
+		if(shift == -1) {
+			alert('not found');
+			$scope.searchResult = undefined;
+		}
+		$scope.shift = (shift * 40) + 'px';
+	};
+	
+	$scope.beginSearch = function() {
+		$scope.textChars = $scope.textString.split('');
+		$scope.searchChars = $scope.searchString.split('');
+		$scope.shift = '0px';
+		
+		var table = preprocess($scope.searchString);
+		
+		$scope.shiftValues = [];
+		for(var i = 0; i < $scope.charKeys.length; i+=1) {
+			$scope.shiftValues.push(table[$scope.charKeys[i].charCodeAt()]);
+		}
+		
+		$('#needle').children().removeClass('good');
+		$scope.searchResult = search($scope.searchString, $scope.textString, table);
+	};
+});
+
+$(document).ready(function() {
+	
+});
+</script>
+
+</head>
+<body>
+
+<div class="container" ng-app="myApp" ng-controller="myCtrl">
+	<div class="row top">
+		<div class="col-md-6" style="padding-left: 10%">
+			<div>
+				<b>Text</b>
+			</div>
+			<input id="text" type="text" size="35" ng-model="textString">
+			<div>
+				<b ng-click="beginSearch()" class="btn btn-primary" style="margin-top: 10px">Search</b>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<div>
+				<b>Search for</b>
+			</div>
+			<input id="search" type="text" size="35" ng-model="searchString">
+			<div>
+				<b ng-click="next()" class="btn btn-danger" style="margin-top: 10px">Next</b>
+			</div>
+		</div>
+	</div>
+	<div class="row" style="height: 100vh; background-color: rgb(238, 238, 238);">
+		<div class="array" style="margin-top: 20px">
+			<span ng-repeat="c in textChars track by $index">{{c}}</span>
+		</div>
+		<div></div>
+		<div id="needle" class="array" style="margin-left: {{shift}}; position: relative; top: -2px;">
+			<span ng-repeat="c in searchChars track by $index">{{c}}</span>
+		</div>
+		
+		
+		<div style="margin-top: 90px; position: relative; top: 2px;">
+			SHIFT VALUES
+			<div class="array">
+				<span ng-repeat="c in charKeys">{{c}}</span>
+			</div>
+		</div>
+		<div>
+			<div class="array">
+				<span ng-repeat="v in shiftValues track by $index">{{v}}</span>
+			</div>
+		</div>
+	</div>
+</div>
+</body>
+</html>
